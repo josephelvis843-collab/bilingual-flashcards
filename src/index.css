@@ -85,6 +85,15 @@ h1 {
   font-size: 0.78rem;
   margin: 0;
 }
+.status-note {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  margin: -12px 0 16px;
+}
+.status-note.is-error {
+  color: #dc2626;
+}
 .card-stage {
   display: flex;
   align-items: center;

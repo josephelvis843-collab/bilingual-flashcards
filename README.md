@@ -1,16 +1,40 @@
-# React + Vite
+# Bilingual Vocab Flashcards
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+English/Spanish vocabulary flashcards with a multiple-choice quiz and progress tracking.
+React + Vite frontend, Node.js + Express API.
 
-Currently, two official plugins are available:
+**Live demo:** https://josephelvis843-collab.github.io/bilingual-flashcards/
+(static site — runs in offline mode, saving progress in your browser)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Running locally
 
-## React Compiler
+```
+npm install
+npm run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+This starts both servers:
+- Frontend (Vite): http://localhost:5173
+- API (Express): http://localhost:3001 — Vite proxies `/api/*` to it in dev
 
-## Expanding the Oxlint configuration
+## API
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+| Method | Route           | Description                                        |
+|--------|-----------------|----------------------------------------------------|
+| GET    | `/api/health`   | Health check                                       |
+| GET    | `/api/words`    | The word list                                      |
+| GET    | `/api/progress` | `{ known: [...] }` — word keys marked as known     |
+| PUT    | `/api/progress` | Replace progress; body `{ known: [...] }`          |
+
+Progress is stored in `server/data/progress.json` (git-ignored).
+
+If the API can't be reached, the app falls back to the bundled word list and
+`localStorage`, which is how the GitHub Pages build works.
+
+## Scripts
+
+- `npm run dev` — frontend + API with hot reload
+- `npm run server` — API only, restarts on file changes
+- `npm start` — API only, production
+- `npm run build` — build the frontend to `dist/`
+- `npm run lint` — run oxlint

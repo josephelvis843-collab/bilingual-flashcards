@@ -4,7 +4,17 @@ English/Spanish vocabulary flashcards with a multiple-choice quiz and progress t
 React + Vite frontend, Node.js + Express API.
 
 **Live demo:** https://josephelvis843-collab.github.io/bilingual-flashcards/
-(static site — runs in offline mode, saving progress in your browser)
+
+## Architecture
+
+- **Frontend:** React + Vite, hosted on GitHub Pages (`.github/workflows/deploy.yml`)
+- **API:** Node.js + Express, hosted on Render's free tier (`render.yaml`) —
+  https://bilingual-flashcards-api.onrender.com/api/health
+- **Database:** Postgres on Neon, one row per (anonymous user, known word)
+
+Each browser gets a random anonymous ID (no login), sent as an `X-User-Id`
+header, so every visitor has their own progress. The free Render server sleeps
+when idle; the app shows cards immediately and syncs progress once it wakes.
 
 ## Running locally
 
@@ -26,10 +36,18 @@ This starts both servers:
 | GET    | `/api/progress` | `{ known: [...] }` — word keys marked as known     |
 | PUT    | `/api/progress` | Replace progress; body `{ known: [...] }`          |
 
-Progress is stored in `server/data/progress.json` (git-ignored).
+`/api/progress` requires an `X-User-Id` header containing a UUID.
+
+Storage: if `DATABASE_URL` is set (in `.env` locally, or in Render's dashboard)
+progress goes to Postgres; otherwise to `server/data/progress.json`. Both are
+git-ignored. To use the database locally, create `.env` with:
+
+```
+DATABASE_URL=postgresql://user:password@host/neondb?sslmode=verify-full
+```
 
 If the API can't be reached, the app falls back to the bundled word list and
-`localStorage`, which is how the GitHub Pages build works.
+`localStorage`.
 
 ## Scripts
 

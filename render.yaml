@@ -1,0 +1,17 @@
+# Render Blueprint: defines the API service so Render can create it from
+# this file (Dashboard → New → Blueprint). Redeploys on every push to main.
+services:
+  - type: web
+    name: bilingual-flashcards-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: CORS_ORIGIN
+        value: https://josephelvis843-collab.github.io
+      - key: DATABASE_URL
+        sync: false # secret — you paste it in the Render dashboard, never committed

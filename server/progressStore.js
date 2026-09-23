@@ -1,24 +1,10 @@
-// Where "known" progress is saved. Everything storage-related lives in
-// this file, so swapping the JSON file for a real database later (e.g.
-// Supabase) only means rewriting these two functions — the routes in
-// index.js don't care how the data is stored.
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+// Picks where progress is saved. Both stores expose the same three
+// functions, so the routes in index.js don't care which one is in use.
+const usePostgres = Boolean(process.env.DATABASE_URL);
 
-const DATA_FILE = join(dirname(fileURLToPath(import.meta.url)), 'data', 'progress.json');
+const store = usePostgres
+  ? await import('./stores/pgStore.js')
+  : await import('./stores/fileStore.js');
 
-export async function readKnown() {
-  try {
-    const raw = await readFile(DATA_FILE, 'utf8');
-    return JSON.parse(raw).known ?? [];
-  } catch (err) {
-    if (err.code === 'ENOENT') return []; // no progress saved yet
-    throw err;
-  }
-}
-
-export async function writeKnown(known) {
-  await mkdir(dirname(DATA_FILE), { recursive: true });
-  await writeFile(DATA_FILE, JSON.stringify({ known }, null, 2));
-}
+export const storeName = usePostgres ? 'Postgres' : 'local JSON file';
+export const { init, readKnown, writeKnown } = store;

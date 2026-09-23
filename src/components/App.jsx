@@ -1,19 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Flashcard from './Flashcard.jsx';
 import Quiz from './Quiz.jsx';
-import { wordKey } from '../data/words.js';
-import { loadInitialData, saveLocalKnown, saveServerKnown } from '../api.js';
+import { WORDS, wordKey } from '../data/words.js';
+import { fetchServerData, readLocalKnown, saveLocalKnown, saveServerKnown } from '../api.js';
+
+const STATUS_TEXT = {
+  connecting: 'Connecting to server… (the free server can take up to a minute to wake up)',
+  online: 'Progress saved to server',
+  offline: 'Offline mode — progress saved in this browser',
+};
 
 // The top-level component. It owns which card we're looking at —
 // that's "state lifted up": the index lives here, not inside Flashcard,
 // because both the nav buttons AND the card need to know about it.
 export default function App() {
-  // null until loaded — words now come from the API (or the fallback list).
-  const [words, setWords] = useState(null);
-  const [known, setKnown] = useState(new Set());
-  const [online, setOnline] = useState(false);
+  // Start with the bundled words and the local copy of progress, so the
+  // app is usable immediately while the server (maybe) wakes up.
+  const [words, setWords] = useState(WORDS);
+  const [known, setKnown] = useState(() => new Set(readLocalKnown()));
+  const [status, setStatus] = useState('connecting'); // 'connecting' | 'online' | 'offline'
   const [saveError, setSaveError] = useState(false);
   const [index, setIndex] = useState(0);
+
+  // useRef holds a value that survives re-renders but, unlike state,
+  // changing it doesn't trigger a re-render. We only need to *remember*
+  // whether the user clicked anything before the server answered.
+  const changedWhileConnecting = useRef(false);
 
   // Fetch once on mount (empty dependency array). useEffect is the right
   // place for this: loading data is syncing with something outside React.
@@ -21,20 +33,26 @@ export default function App() {
   // the component is gone (React's StrictMode mounts twice in dev).
   useEffect(() => {
     let cancelled = false;
-    loadInitialData().then(data => {
-      if (cancelled) return;
-      setWords(data.words);
-      setKnown(new Set(data.known));
-      setOnline(data.online);
-    });
+    fetchServerData()
+      .then(data => {
+        if (cancelled) return;
+        setWords(data.words);
+        if (changedWhileConnecting.current) {
+          // The user's latest clicks win: push the local copy to the server.
+          saveServerKnown(readLocalKnown()).catch(() => setSaveError(true));
+        } else {
+          setKnown(new Set(data.known));
+          saveLocalKnown(data.known);
+        }
+        setStatus('online');
+      })
+      .catch(() => {
+        if (!cancelled) setStatus('offline');
+      });
     return () => {
       cancelled = true;
     };
   }, []);
-
-  if (!words) {
-    return <p className="status-note">Loading words…</p>;
-  }
 
   const word = words[index];
 
@@ -56,12 +74,14 @@ export default function App() {
 
     // Saving happens right here in the event handler, because it's caused
     // by a specific click — not something that should run after any render.
-    if (online) {
-      saveServerKnown([...next])
+    const list = [...next];
+    saveLocalKnown(list); // always keep a local copy
+    if (status === 'online') {
+      saveServerKnown(list)
         .then(() => setSaveError(false))
         .catch(() => setSaveError(true));
-    } else {
-      saveLocalKnown([...next]);
+    } else if (status === 'connecting') {
+      changedWhileConnecting.current = true;
     }
   }
 
@@ -78,11 +98,9 @@ export default function App() {
         </div>
         <p className="progress-label">{knownCount} of {words.length} known</p>
       </div>
-      <p className="status-note">
-        {online ? 'Progress saved to server' : 'Offline mode — progress saved in this browser'}
-      </p>
+      <p className="status-note">{STATUS_TEXT[status]}</p>
       {saveError && (
-        <p className="status-note is-error">Couldn't save progress to the server. Is it running?</p>
+        <p className="status-note is-error">Couldn't save progress to the server — it's saved in this browser for now.</p>
       )}
 
       <div className="card-stage">

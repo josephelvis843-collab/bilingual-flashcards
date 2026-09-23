@@ -1,17 +1,42 @@
 // All talking to the backend happens here, so components never call
-// fetch directly. If there's no API (e.g. the static GitHub Pages site),
-// we fall back to the bundled word list and localStorage.
-import { WORDS } from './data/words.js';
+// fetch directly. localStorage always keeps a copy of progress, so the
+// app works instantly on load and even with no API at all.
 
-// Empty in dev (Vite proxies /api to the Express server). When the API is
-// hosted elsewhere, set VITE_API_URL at build time, e.g. https://my-api.onrender.com
+// Empty in dev (Vite proxies /api to the Express server). The production
+// build sets VITE_API_URL to the hosted API, e.g. https://my-api.onrender.com
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
-const STORAGE_KEY = 'vocab-flashcards-known-react-v1';
+const KNOWN_KEY = 'vocab-flashcards-known-react-v1';
+const USER_ID_KEY = 'vocab-flashcards-user-id';
+
+// Free hosts sleep when idle and can take ~50s to wake up.
+const REQUEST_TIMEOUT_MS = 90_000;
+
+// Each browser gets a random anonymous ID the first time, and reuses it
+// after that. The server stores progress per ID.
+let userId;
+function getUserId() {
+  if (userId) return userId;
+  try {
+    userId = localStorage.getItem(USER_ID_KEY);
+  } catch {
+    // localStorage unavailable — fall through and use a per-session ID
+  }
+  if (!userId) {
+    userId = crypto.randomUUID();
+    try {
+      localStorage.setItem(USER_ID_KEY, userId);
+    } catch {
+      // ignore
+    }
+  }
+  return userId;
+}
 
 async function request(path, options) {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': getUserId() },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   // A static host answers /api/... with an HTML 404 page, so check both
   // the status and that we actually got JSON back.
@@ -21,9 +46,9 @@ async function request(path, options) {
   return res.json();
 }
 
-function readLocalKnown() {
+export function readLocalKnown() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(KNOWN_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return []; // localStorage can fail (private browsing, etc.)
@@ -32,23 +57,18 @@ function readLocalKnown() {
 
 export function saveLocalKnown(known) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(known));
+    localStorage.setItem(KNOWN_KEY, JSON.stringify(known));
   } catch {
     // ignore — app still works, it just won't persist
   }
 }
 
-// Loads words + progress. `online` tells the app which place to save to.
-export async function loadInitialData() {
-  try {
-    const [words, progress] = await Promise.all([
-      request('/api/words'),
-      request('/api/progress'),
-    ]);
-    return { words, known: progress.known, online: true };
-  } catch {
-    return { words: WORDS, known: readLocalKnown(), online: false };
-  }
+export async function fetchServerData() {
+  const [words, progress] = await Promise.all([
+    request('/api/words'),
+    request('/api/progress'),
+  ]);
+  return { words, known: progress.known };
 }
 
 export function saveServerKnown(known) {

@@ -56,3 +56,11 @@ If the API can't be reached, the app falls back to the bundled word list and
 - `npm start` — API only, production
 - `npm run build` — build the frontend to `dist/`
 - `npm run lint` — run oxlint
+- `npm test` — run all tests once
+- `npm run test:watch` — rerun tests as files change
+
+## Testing
+
+Tests use Vitest, React Testing Library, and Supertest. They run on every push
+to `main`, and a failure stops the GitHub Pages deploy. API tests use an
+in-memory store, so they never touch the real database.

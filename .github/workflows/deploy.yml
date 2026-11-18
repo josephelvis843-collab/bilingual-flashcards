@@ -25,6 +25,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # If either of these fails, the deploy stops and the live site stays as it was.
+      - run: npm run lint
+      - run: npm test
       - run: npm run build
         env:
           # Repo variable (Settings → Secrets and variables → Actions → Variables).

@@ -13,4 +13,26 @@ export default defineConfig({
       '/api': 'http://localhost:3001',
     },
   },
+  // Frontend tests run in a simulated browser, API tests in plain Node.
+  test: {
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'client',
+          environment: 'jsdom',
+          include: ['src/**/*.test.{js,jsx}'],
+          setupFiles: ['src/test/setup.js'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'server',
+          environment: 'node',
+          include: ['server/**/*.test.js'],
+        },
+      },
+    ],
+  },
 })

@@ -57,15 +57,6 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true });
 });
 
-// TEMPORARY: measures Render's proxy chain. Shows callers only their own request.
-app.get('/api/proxy-check', (req, res) => {
-  res.json({
-    forwardedFor: req.get('x-forwarded-for') ?? null,
-    socket: req.socket.remoteAddress,
-    ip: req.ip,
-  });
-});
-
 app.get('/api/words', readLimiter, (req, res) => {
   res.json(WORDS);
 });

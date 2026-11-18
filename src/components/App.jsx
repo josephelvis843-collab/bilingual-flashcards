@@ -81,22 +81,29 @@ export default function App() {
   const pct = Math.round((knownCount / words.length) * 100);
 
   return (
-    <div>
+    <main>
       <h1>Bilingual Vocab Flashcards</h1>
 
       <div className="progress-row">
-        <div className="progress-track">
+        <div
+          className="progress-track"
+          role="progressbar"
+          aria-label="Words known"
+          aria-valuemin={0}
+          aria-valuemax={words.length}
+          aria-valuenow={knownCount}
+        >
           <div className="progress-fill" style={{ width: `${pct}%` }}></div>
         </div>
         <p className="progress-label">{knownCount} of {words.length} known</p>
       </div>
-      <p className="status-note">{STATUS_TEXT[status]}</p>
+      <p className="status-note" role="status">{STATUS_TEXT[status]}</p>
       {saveError && (
-        <p className="status-note is-error">Couldn't reach the server. Your progress is saved in this browser and will sync later.</p>
+        <p className="status-note is-error" role="alert">Couldn't reach the server. Your progress is saved in this browser and will sync later.</p>
       )}
 
       <div className="card-stage">
-        <button className="card-nav" onClick={() => step(-1)}>‹</button>
+        <button className="card-nav" aria-label="Previous card" onClick={() => step(-1)}>‹</button>
 
         {/* key={index} is the important bit: when index changes, React
             sees a different key and throws away the old Flashcard
@@ -106,9 +113,9 @@ export default function App() {
             already flipped. */}
         <Flashcard key={index} word={word} />
 
-        <button className="card-nav" onClick={() => step(1)}>›</button>
+        <button className="card-nav" aria-label="Next card" onClick={() => step(1)}>›</button>
       </div>
-      <p className="card-counter">Card {index + 1} of {words.length}</p>
+      <p className="card-counter" aria-live="polite">Card {index + 1} of {words.length}</p>
 
       <div className="know-actions">
         <button className="btn" onClick={() => markKnown(false)}>Still learning</button>
@@ -116,6 +123,6 @@ export default function App() {
       </div>
 
       <Quiz words={words} />
-    </div>
+    </main>
   );
 }

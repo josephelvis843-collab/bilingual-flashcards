@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // A plain JS function — not a component, doesn't return JSX, just data.
 // Not every function in a React file needs to be a component.
@@ -38,6 +38,18 @@ function makeQuestion(words) {
 export default function Quiz({ words }) {
   const [question, setQuestion] = useState(() => makeQuestion(words));
   const [selected, setSelected] = useState(null); // which option they clicked, or null
+  const questionRef = useRef(null);
+  const shouldFocusQuestion = useRef(false);
+
+  // The "Next question" button disappears once clicked, which would drop
+  // keyboard users back at the top of the page. Move focus to the new
+  // question instead — but only after a click, never on first page load.
+  useEffect(() => {
+    if (shouldFocusQuestion.current) {
+      shouldFocusQuestion.current = false;
+      questionRef.current.focus();
+    }
+  }, [question]);
 
   function handleAnswer(option) {
     if (selected) return; // already answered this question, ignore further clicks
@@ -45,14 +57,20 @@ export default function Quiz({ words }) {
   }
 
   function nextQuestion() {
+    shouldFocusQuestion.current = true;
     setQuestion(makeQuestion(words));
     setSelected(null);
   }
 
+  // The answers are in the opposite language from the prompt. The lang
+  // attribute tells screen readers which pronunciation to use.
+  const promptLang = question.askEnglish ? 'en' : 'es';
+  const answerLang = question.askEnglish ? 'es' : 'en';
+
   return (
     <div className="quiz-section">
-      <p className="quiz-question">
-        What is "{question.prompt}" in {question.askEnglish ? 'Spanish' : 'English'}?
+      <p className="quiz-question" ref={questionRef} tabIndex={-1}>
+        What is "<span lang={promptLang}>{question.prompt}</span>" in {question.askEnglish ? 'Spanish' : 'English'}?
       </p>
       <div className="quiz-options">
         {/* Rendering a list: .map turns each option string into a button.
@@ -71,6 +89,7 @@ export default function Quiz({ words }) {
             <button
               key={option}
               className={className}
+              lang={answerLang}
               disabled={!!selected}
               onClick={() => handleAnswer(option)}
             >
@@ -80,18 +99,23 @@ export default function Quiz({ words }) {
         })}
       </div>
 
-      {/* Conditional rendering: this whole block only exists once
-          `selected` is truthy. `selected && (...)` is a common React
-          shorthand for "render this, or render nothing." */}
-      {selected && (
-        <div>
+      {/* Conditional rendering: the feedback only exists once `selected`
+          is truthy. `selected && (...)` is a common React shorthand for
+          "render this, or render nothing." The aria-live wrapper is always
+          on the page so screen readers notice the text appearing inside it. */}
+      <div aria-live="polite">
+        {selected && (
           <p className="quiz-feedback">
             {selected === question.correctAnswer
               ? 'Correct! 🎉'
               : `Not quite — the answer was "${question.correctAnswer}".`}
           </p>
-          <button className="quiz-next" onClick={nextQuestion}>Next question →</button>
-        </div>
+        )}
+      </div>
+      {/* Answering disables the option that had focus, so autoFocus moves
+          keyboard users straight to the next step. */}
+      {selected && (
+        <button className="quiz-next" onClick={nextQuestion} autoFocus>Next question →</button>
       )}
     </div>
   );

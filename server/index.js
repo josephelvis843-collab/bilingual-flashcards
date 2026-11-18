@@ -10,7 +10,8 @@ const PORT = process.env.PORT || 3001; // hosts like Render set PORT for you
 // Behind a host's proxies every request appears to come from the proxy.
 // This says how many proxies to trust when finding the visitor's real IP.
 // Too high would let visitors fake their IP to dodge the rate limits.
-app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 0));
+// Render has 3 (measured from its X-Forwarded-For chain); locally there are none.
+app.set('trust proxy', process.env.RENDER ? 3 : 0);
 
 // In production the frontend (GitHub Pages) is on a different origin than
 // this API, so the browser blocks responses unless we allow that origin.

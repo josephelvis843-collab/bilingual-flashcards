@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Flashcard from './Flashcard.jsx';
 import Quiz from './Quiz.jsx';
 import { WORDS, wordKey } from '../data/words.js';
-import { fetchServerData, readLocalKnown, saveLocalKnown, saveServerKnown } from '../api.js';
+import { fetchServerData, readLocalKnown, recordLocalChange, reconcileKnown, syncToServer } from '../api.js';
 
 const STATUS_TEXT = {
   connecting: 'Connecting to server… (the free server can take up to a minute to wake up)',
@@ -22,11 +22,6 @@ export default function App() {
   const [saveError, setSaveError] = useState(false);
   const [index, setIndex] = useState(0);
 
-  // useRef holds a value that survives re-renders but, unlike state,
-  // changing it doesn't trigger a re-render. We only need to *remember*
-  // whether the user clicked anything before the server answered.
-  const changedWhileConnecting = useRef(false);
-
   // Fetch once on mount (empty dependency array). useEffect is the right
   // place for this: loading data is syncing with something outside React.
   // The `cancelled` flag stops a late response from setting state after
@@ -37,12 +32,13 @@ export default function App() {
       .then(data => {
         if (cancelled) return;
         setWords(data.words);
-        if (changedWhileConnecting.current) {
-          // The user's latest clicks win: push the local copy to the server.
-          saveServerKnown(readLocalKnown()).catch(() => setSaveError(true));
-        } else {
-          setKnown(new Set(data.known));
-          saveLocalKnown(data.known);
+        const { known: reconciled, needsUpload } = reconcileKnown(data.known);
+        setKnown(new Set(reconciled));
+        if (needsUpload) {
+          // The server rejects unknown keys, so leave out any words that
+          // have been removed from the list since this was saved.
+          const validKeys = new Set(data.words.map(wordKey));
+          syncToServer(reconciled.filter(k => validKeys.has(k))).then(ok => setSaveError(!ok));
         }
         setStatus('online');
       })
@@ -75,13 +71,9 @@ export default function App() {
     // Saving happens right here in the event handler, because it's caused
     // by a specific click — not something that should run after any render.
     const list = [...next];
-    saveLocalKnown(list); // always keep a local copy
+    recordLocalChange(list); // if we're not online yet, this syncs on a later load
     if (status === 'online') {
-      saveServerKnown(list)
-        .then(() => setSaveError(false))
-        .catch(() => setSaveError(true));
-    } else if (status === 'connecting') {
-      changedWhileConnecting.current = true;
+      syncToServer(list).then(ok => setSaveError(!ok));
     }
   }
 
@@ -100,7 +92,7 @@ export default function App() {
       </div>
       <p className="status-note">{STATUS_TEXT[status]}</p>
       {saveError && (
-        <p className="status-note is-error">Couldn't save progress to the server — it's saved in this browser for now.</p>
+        <p className="status-note is-error">Couldn't reach the server. Your progress is saved in this browser and will sync later.</p>
       )}
 
       <div className="card-stage">
